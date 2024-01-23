@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Icon Creator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <input type="color" id="backgroundColor" value="#ffffff" />
+        <input type="file" id="imageInput" accept="image/*" />
+        <select id="iconShape">
+            <option value="circle">Circle</option>
+            <option value="square">Square</option>
+            <option value="squircle">Squircle</option>
+        </select>
+        <input type="range" id="paddingPercentage" min="0" max="50" value="10" />
+        <input type="text" id="badgeText" placeholder="Badge Text" />
+        <button onclick="previewIcon()">Preview Icon</button>
+        <div id="preview"></div>
+        <button onclick="downloadIcon()">Download Icon</button>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
+
+
