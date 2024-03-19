@@ -1,168 +1,176 @@
-const fs = require("fs");
-const axios = require("axios");
-const cheerio = require("cheerio");
-const express = require("express");
+const express = require('express');
+const axios = require('axios');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 3000;
 
-// Endpoint to scrape SMS data
-app.get("/scrape/:country/:number", async (req, res) => {
-  try {
+
+app.get('/info/:country/:number', async (req, res) => {
     const { country, number } = req.params;
-    const url = `https://temp-number.com/temporary-numbers/${country}/${number}/1`;
 
-    const response = await axios.get(url);
-    const html = response.data;
+    try {
+        // Send a POST request to fetch numbers
+        const response = await axios.post('https://api-1.online/post/?action=GetFreeNumbers&type=user', {
+            country_name: country,
+            limit: 10,
+            page: 1
+        }, {
+            headers: {
+                'Authorization': 'Bearer 7ff1e966758f4dedea8891995d0abf12',
+                'Content-Type': 'application/json; charset=UTF-8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'User-Agent': 'okhttp/4.9.2'
+            }
+        });
 
-    // Save HTML code to file
-    fs.writeFileSync("sms.html", html);
+        // Extract numbers array from the response
+        const numbers = response.data.Available_numbers;
 
-    // Load HTML from file for processing
-    const $ = cheerio.load(html);
-    const messages = [];
+        // Find details of the specific number
+        const foundNumber = numbers.find(num => num['E.164'] === `+${number}` || num.number === number);
 
-    $(".direct-chat-msg").each((index, element) => {
-      const sender = $(element).find(".direct-chat-name").text();
-      const time = $(element).find(".direct-chat-timestamp").text();
-      const text = $(element).find(".direct-chat-text").text();
+      const status = foundNumber.status.charAt(0).toUpperCase() + foundNumber.status.slice(1);
 
-      if (sender.toLowerCase() !== "") {
-        messages.push({ sender, time, text });
-      }
-    });
 
-    // Extract SIM card information
-    const simInfo = {
-      status: $(".sim-info__status").text().trim(),
-      country: $(".sim-info__country p").text().trim(),
-      receivedToday: $('.sim-info:contains("Received Today") p').text().trim(),
-      activeSince: $('.sim-info:contains("Active since") p').text().trim(),
-    };
+        if (foundNumber) {
+            const simInfo = {
+                status: status,
+                country: foundNumber.country,
+                receivedToday: `Received Today 198 SMS`,
+                activeSince: `Active since ${foundNumber.time}`
+            };
 
-    res.json({ country, number, messages });
-  } catch (error) {
-    console.error("Error fetching data:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
+            res.json({ simInfo });
+        } else {
+            res.status(404).json({ error: 'Number not found' });
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
 });
 
-// Endpoint to fetch and process country data
-app.get("/country/:country", async (req, res) => {
-  try {
-    const { country } = req.params;
-    const url = `https://temp-number.com/countries/${country}/1`;
 
-    const response = await axios.get(url);
-    const html = response.data;
 
-    // Save HTML code to file
-    fs.writeFileSync("numbers.html", html);
 
-    // Load HTML from file for processing
-    const $ = cheerio.load(html);
-    const countryData = [];
 
-    $("div.country-box").each((index, element) => {
-      const time = $(element).find(".add_time-top").text().trim();
-      const phoneNumber = $(element).find(".card-title").text().trim();
 
-      countryData.push({ time, phoneNumber, country });
-    });
 
-    res.json({ country, countryData });
-  } catch (error) {
-    console.error("Error fetching data:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
-// Endpoint to fetch and process country data
-app.get("/allcountry", async (req, res) => {
-  try {
-    const url = "https://temp-number.com/";
-    const response = await axios.get(url);
-    const html = response.data;
-
-    // Save HTML code to file
-    fs.writeFileSync("country.html", html);
-
-    // Load HTML from file for processing
-    const $ = cheerio.load(html);
-    const status = "on";
-    const countries = [];
-
-    $(".country-link").each((index, element) => {
-      const countryLink = $(element).attr("href");
-      const countryCode = countryLink.split("/").pop();
-      const countryName = $(element).find(".card-title").text().trim();
-
-      // Exclude specific countries
-      if (
-        countryName.toLowerCase() !== "france" &&
-        countryName.toLowerCase() !== "netherlands" &&
-        countryName.toLowerCase() !== "poland" &&
-        countryName.toLowerCase() !== "lithuania" &&
-        countryName.toLowerCase() !== "estonia" &&
-        countryName.toLowerCase() !== "timor leste" &&
-        countryName.toLowerCase() !== "estonia" &&
-        countryName.toLowerCase() !== "italy" &&
-        countryName.toLowerCase() !== "hong kong" &&
-        countryName.toLowerCase() !== "canada"
-      ) {
-        countries.push({ countryCode, countryName });
-      }
-    });
-
-    res.json({ status, countries });
-  } catch (error) {
-    console.error("Error fetching data:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
-// Endpoint to scrape information
-app.get("/info/:country/:number", async (req, res) => {
-  try {
+app.get('/scrape/:country/:number', async (req, res) => {
     const { country, number } = req.params;
-    const url = `https://temp-number.com/temporary-numbers/${country}/${number}/1`;
 
-    const response = await axios.get(url);
-    const html = response.data;
+    try {
+        const response = await axios.post('https://api-1.online/post/getFreeMessages', {
+            no: `+${number}`,
+            page: 1
+        }, {
+            headers: {
+                'Authorization': 'Bearer 7ff1e966758f4dedea8891995d0abf12',
+                'Content-Type': 'application/json; charset=UTF-8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'User-Agent': 'okhttp/4.9.2'
+            }
+        });
 
-    // Save HTML code to file
-    fs.writeFileSync("info.html", html);
+        // Extract messages from the response
+        const messages = response.data.messages.map(message => ({
+            sender: message.FromNumber.replace('+', ''),
+            time: message.message_time,
+            text: message.Messagebody
+        }));
 
-    // Load HTML from file for processing
-    const $ = cheerio.load(html);
+        // Construct the desired response object
+        const responseData = {
+            country: country.replace('-', ' '),
+            number: number.replace('-', ''),
+            messages: messages
+        };
 
-    const messages = [];
-    $(".direct-chat-msg").each((index, element) => {
-      const sender = $(element).find(".direct-chat-name").text();
-      const time = $(element).find(".direct-chat-timestamp").text();
-      const text = $(element).find(".direct-chat-text").text();
-
-      messages.push({ sender, time, text });
-    });
-
-    // Extract SIM card information
-    const simInfo = {
-      status: $(".sim-info__status").text().trim(),
-      country: $(".sim-info__country p").text().trim(),
-      receivedToday: $('.sim-info:contains("Received Today") p').text().trim(),
-      activeSince: $('.sim-info:contains("Active since") p').text().trim(),
-    };
-
-    res.json({ simInfo });
-  } catch (error) {
-    console.error("Error fetching data:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
+        res.json(responseData);
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
 });
 
-app.use("/images", express.static("images"));
 
-// Start server
+
+async function sendPostRequests(countryName) {
+    try {
+        const response = await axios.post('https://api-1.online/post/?action=GetFreeNumbers&type=user', {
+            country_name: countryName.replace(/-/g, ' '), // Remove dashes from country name
+            limit: 10,
+            page: 1
+        }, {
+            headers: {
+                'Authorization': 'Bearer 7ff1e966758f4dedea8891995d0abf12',
+                'Content-Type': 'application/json; charset=UTF-8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'User-Agent': 'okhttp/4.9.2'
+            }
+        });
+
+        return response.data; // Return the response JSON
+    } catch (error) {
+        throw new Error('Error:', error);
+    }
+}
+
+app.get('/country/:country', async (req, res) => {
+    try {
+        const countryName = req.params.country.replace(/-/g, ' '); // Remove dashes from country name
+        const responseData = await sendPostRequests(countryName);
+
+        // Extract and transform the data
+        const countryData = responseData.Available_numbers.map(item => ({
+            time: item.time,
+            phoneNumber: item['E.164'].replace('+', ''),
+            country: item.country.replace(/\s+/g, '-') // Replace spaces with dashes in country name
+        }));
+
+        res.json({ country: countryName, countryData: countryData });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+
+async function sendPostRequest() {
+    try {
+        const response = await axios.post('https://api-1.online/get/?action=country', {
+            // Add any request body data here if needed
+        }, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'User-Agent': 'okhttp/4.9.2'
+            }
+        });
+
+        // Extract required fields and format the data
+        const formattedData = response.data.records.map(record => ({
+            countryCode: record.Country_Name.replace(/\s+/g, '-'),
+            countryName: record.Country_Name
+        }));
+
+        return { status: 'on', countries: formattedData };
+    } catch (error) {
+        console.error('Error:', error);
+        throw error;
+    }
+}
+
+app.get('/allcountry', async (req, res) => {
+    try {
+        // Trigger the function to send the POST request
+        const responseData = await sendPostRequest();
+        res.json(responseData); // Send response data as JSON
+    } catch (error) {
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+    console.log(`Server is running on port ${port}`);
 });
