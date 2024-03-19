@@ -171,6 +171,8 @@ app.get('/allcountry', async (req, res) => {
     }
 });
 
+app.use("/images", express.static("images"));
+
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
