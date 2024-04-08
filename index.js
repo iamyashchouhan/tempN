@@ -16,7 +16,7 @@ app.get('/info/:country/:number', async (req, res) => {
             page: 1
         }, {
             headers: {
-                'Authorization': 'Bearer 7ff1e966758f4dedea8891995d0abf12',
+                'Authorization': 'Bearer ad49fc981fae0a134e6672c8bafee91f',
                 'Content-Type': 'application/json; charset=UTF-8',
                 'Accept-Encoding': 'gzip, deflate, br',
                 'User-Agent': 'okhttp/4.9.2'
@@ -65,7 +65,7 @@ app.get('/scrape/:country/:number', async (req, res) => {
             page: 1
         }, {
             headers: {
-                'Authorization': 'Bearer 7ff1e966758f4dedea8891995d0abf12',
+                'Authorization': 'Bearer ad49fc981fae0a134e6672c8bafee91f',
                 'Content-Type': 'application/json; charset=UTF-8',
                 'Accept-Encoding': 'gzip, deflate, br',
                 'User-Agent': 'okhttp/4.9.2'
@@ -103,7 +103,7 @@ async function sendPostRequests(countryName) {
             page: 1
         }, {
             headers: {
-                'Authorization': 'Bearer 7ff1e966758f4dedea8891995d0abf12',
+                'Authorization': 'Bearer ad49fc981fae0a134e6672c8bafee91f',
                 'Content-Type': 'application/json; charset=UTF-8',
                 'Accept-Encoding': 'gzip, deflate, br',
                 'User-Agent': 'okhttp/4.9.2'
